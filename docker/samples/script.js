@@ -6,23 +6,34 @@ import { randomItem, randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.2.0
 import { describe, expect } from 'https://jslib.k6.io/k6chaijs/4.3.4.3/index.js';
 import Papa from 'https://jslib.k6.io/papaparse/5.1.1/index.js';
 
-const CURRENCY_PAIRS = [
-    {base: 'AUD', counter: 'CAD'},
-    {base: 'AUD', counter: 'NZD'},
-    {base: 'CAD', counter: 'CHF'},
-    {base: 'CAD', counter: 'JPY'},
-    {base: 'CHF', counter: 'JPY'},
-    {base: 'EUR', counter: 'CAD'},
-    {base: 'EUR', counter: 'CHF'}
-];
-
 export const options = {
-    // stages: [
-    //     { duration: '5s', target: 3 },
-        // { duration: '10s', target: 10 },
-        // { duration: '5s', target: 5 },
-    //   ],
+    stages: [
+        { duration: '5s', target: 10 },
+        { duration: '30s', target: 30 },
+        { duration: '5s', target: 10 },
+      ],
 };
+
+
+// export const options = {
+//     discardResponseBodies: true,
+//     scenarios: {
+//       contacts: {
+//         executor: 'constant-vus',
+//         exec: 'contacts',
+//         vus: 50,
+//         duration: '30s',
+//       },
+//       news: {
+//         executor: 'per-vu-iterations',
+//         exec: 'news',
+//         vus: 50,
+//         iterations: 100,
+//         startTime: '30s',
+//         maxDuration: '1m',
+//       },
+//     },
+//   };
 
 const baseCurrencies = new SharedArray('baseCurrencies', function () {
     const data = open('/scripts/resources/baseCurrencies.csv');
@@ -42,33 +53,81 @@ const rateBookingReqs = new SharedArray('rateBookingReqs', function () {
 export function setup() {
     // 2. setup
     console.log("setup");
-    return { "url": 'http://forex-trade-app:8080' };
+    return { 
+        url: 'http://forex-trade-app:8080',
+        minPauseInSecond: 1,
+        maxPauseInSecond: 3
+    };
 }
 
+// Default Flow
 export default (config) => {
-    // 3. VU code
-    // const res = http.get('http://forex-trade-app:8080/rates/latest');
-    // console.log(JSON.stringify(res.json('1.timestamp')));
-    // console.log(res.json('1.timestamp'));
-    // let rate1 = res.json('1');
-    // console.log(`counter currency: ${rate1.counterCurrency}`);
-    // check(res, { 'status was 200': (r) => r.status == 200 });
-    
+    // 3. VU code    
     let baseCurrency = baseCurrencies[randomIntBetween(0, baseCurrencies.length - 1)];
     getRatesByBaseCurrency(config.url, baseCurrency);
+    pause(config);
 
     let currencyPair = currencyPairs[randomIntBetween(0, currencyPairs.length - 1)];
     getRatesByCurrencyPair(config.url, currencyPair.baseCurrency, currencyPair.counterCurrency);
+    pause(config);
 
     let rateBookingReq = rateBookingReqs[randomIntBetween(0, rateBookingReqs.length - 1)];
-    bookRate(config.url, rateBookingReq);
-    sleep(1);
+    let rateBookingResult = bookRate(config.url, rateBookingReq);    
+    pause(config);
+
+    let dealReq = buildDealReq(rateBookingReq, rateBookingResult);
+    submitDeal(config.url, dealReq);
+    pause(config);
+}
+
+
+export const browseForexRates = (config) => {
+    let baseCurrency = baseCurrencies[randomIntBetween(0, baseCurrencies.length - 1)];
+    getRatesByBaseCurrency(config.url, baseCurrency);
+    pause(config);
+
+    let currencyPair = currencyPairs[randomIntBetween(0, currencyPairs.length - 1)];
+    getRatesByCurrencyPair(config.url, currencyPair.baseCurrency, currencyPair.counterCurrency);
+    pause(config);
+}
+
+export const browseForexRatesAndBookRate = (config) => {
+    let baseCurrency = baseCurrencies[randomIntBetween(0, baseCurrencies.length - 1)];
+    getRatesByBaseCurrency(config.url, baseCurrency);
+    pause(config);
+
+    let currencyPair = currencyPairs[randomIntBetween(0, currencyPairs.length - 1)];
+    getRatesByCurrencyPair(config.url, currencyPair.baseCurrency, currencyPair.counterCurrency);
+    pause(config);
+
+    let rateBookingReq = rateBookingReqs[randomIntBetween(0, rateBookingReqs.length - 1)];
+    let rateBookingResult = bookRate(config.url, rateBookingReq);   
+    pause(config);
+}
+
+export const browseForexRatesAndSubmitDeal = (config) => {
+    // 3. VU code    
+    let baseCurrency = baseCurrencies[randomIntBetween(0, baseCurrencies.length - 1)];
+    getRatesByBaseCurrency(config.url, baseCurrency);
+    pause(config);
+
+    let currencyPair = currencyPairs[randomIntBetween(0, currencyPairs.length - 1)];
+    getRatesByCurrencyPair(config.url, currencyPair.baseCurrency, currencyPair.counterCurrency);
+    pause(config);
+
+    let rateBookingReq = rateBookingReqs[randomIntBetween(0, rateBookingReqs.length - 1)];
+    let rateBookingResult = bookRate(config.url, rateBookingReq);    
+    pause(config);
+
+    let dealReq = buildDealReq(rateBookingReq, rateBookingResult);
+    submitDeal(config.url, dealReq);
+    pause(config);
 }
 
 export function teardown(config) {
     // 4. teardown
-    console.log("teardown");
-    console.log(JSON.stringify(config));
+    // console.log("teardown");
+    // console.log(JSON.stringify(config));
 }
 
 const getRates0 = (url, baseCurrency) => {
@@ -77,27 +136,60 @@ const getRates0 = (url, baseCurrency) => {
 }
 
 const getRatesByBaseCurrency = (url, baseCurrency) => {
-    describe(`Get Rates By Base Currency - ${baseCurrency}`, () => {
+    describe(`Get Rates By Base Currency`, () => {
         let res = http.get(http.url`${url}/rates/latest/${baseCurrency}`);
-        expect(res.status, "response status").to.equal(200);
+        expect(res.status, 'response status').to.equal(200);
         expect(res).to.have.validJsonBody();
     })
 }
 
 const getRatesByCurrencyPair = (url, baseCurrency, counterCurrency) => {
-    describe(`Get Rates By Pair Currency - ${baseCurrency}, ${counterCurrency}`, () => {
+    describe(`Get Rates By Pair Currency`, () => {
         let res = http.get(http.url`${url}/rates/latest/${baseCurrency}/${counterCurrency}`);
-        expect(res.status, "response status").to.equal(200);
+        expect(res.status, 'response status').to.equal(200);
         expect(res).to.have.validJsonBody();
     })
 }
 
 const bookRate = (url, rateBookingReq) => {
-    describe(`Book Rate By Pair Currency - ${rateBookingReq.baseCurrency}, ${rateBookingReq.counterCurrency}`, () => {
-        let res = http.post(http.url`${url}/rates/book`, JSON.stringify(rateBookingReq), {
-            headers: { 'Content-Type': 'application/json' },
-          });
-        expect(res.status, "response status").to.equal(200);
+
+    let res = http.post(http.url`${url}/rates/book`, JSON.stringify(rateBookingReq), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+    describe(`Book Rate`, () => {
+        expect(res.status, 'response status').to.equal(200);
         expect(res).to.have.validJsonBody();
     })
+
+    return { 
+        rateBookingRef: res.json('bookingRef'),
+        rate: res.json('rate')
+    };
+}
+
+const submitDeal = (url, dealReq) => {
+    describe(`Submit Deal`, () => {
+        let res = http.post(http.url`${url}/deals`, JSON.stringify(dealReq), {
+            headers: { 'Content-Type': 'application/json' },
+          });
+        expect(res.status, 'response status').to.equal(200);
+        expect(res).to.have.validJsonBody();
+    })
+}
+
+const buildDealReq = (rateBookingReq, rateBookingResult) => {
+    return {
+        baseCurrency: rateBookingReq.baseCurrency,
+        counterCurrency: rateBookingReq.counterCurrency,
+        baseCurrencyAmount: rateBookingReq.baseCurrencyAmount,
+        tradeAction: rateBookingReq.tradeAction,
+        rate: rateBookingResult.rate,
+        customerId: rateBookingReq.customerId,
+        rateBookingRef: rateBookingResult.rateBookingRef
+    }
+}
+
+const pause = (config) => {
+    sleep(randomIntBetween(config.minPauseInSecond, config.maxPauseInSecond));   
 }
