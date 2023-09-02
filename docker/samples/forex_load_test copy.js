@@ -6,34 +6,37 @@ import { randomItem, randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.2.0
 import { describe, expect } from 'https://jslib.k6.io/k6chaijs/4.3.4.3/index.js';
 import Papa from 'https://jslib.k6.io/papaparse/5.1.1/index.js';
 
-export const options = {
-    stages: [
-        { duration: '5s', target: 10 },
-        { duration: '30s', target: 30 },
-        { duration: '5s', target: 10 },
-      ],
-};
-
-
 // export const options = {
-//     discardResponseBodies: true,
-//     scenarios: {
-//       contacts: {
-//         executor: 'constant-vus',
-//         exec: 'contacts',
-//         vus: 50,
-//         duration: '30s',
-//       },
-//       news: {
-//         executor: 'per-vu-iterations',
-//         exec: 'news',
-//         vus: 50,
-//         iterations: 100,
-//         startTime: '30s',
-//         maxDuration: '1m',
-//       },
-//     },
-//   };
+//     stages: [
+//         { duration: '5s', target: 10 },
+//         { duration: '30s', target: 30 },
+//         { duration: '5s', target: 10 },
+//       ],
+// };
+
+
+export const options = {    
+    scenarios: {
+        browseForexRates: {
+            executor: 'constant-vus',
+            exec: 'browseForexRates',
+            vus: 30,
+            duration: '30s',
+        },
+        browseForexRatesAndBookRate: {
+            executor: 'constant-vus',
+            exec: 'browseForexRatesAndBookRate',
+            vus: 20,
+            duration: '20s',
+        },
+        browseForexRatesAndSubmitDeal: {
+            executor: 'constant-vus',
+            exec: 'browseForexRatesAndSubmitDeal',
+            vus: 100,
+            duration: '20s',
+        }        
+    },
+  };
 
 const baseCurrencies = new SharedArray('baseCurrencies', function () {
     const data = open('/scripts/resources/baseCurrencies.csv');
@@ -63,15 +66,15 @@ export function setup() {
 // Default Flow
 export default (config) => {
     // 3. VU code    
-    let baseCurrency = baseCurrencies[randomIntBetween(0, baseCurrencies.length - 1)];
+    let baseCurrency = obtainBaseCurrency();
     getRatesByBaseCurrency(config.url, baseCurrency);
     pause(config);
 
-    let currencyPair = currencyPairs[randomIntBetween(0, currencyPairs.length - 1)];
+    let currencyPair = obtainCurrencyPair();
     getRatesByCurrencyPair(config.url, currencyPair.baseCurrency, currencyPair.counterCurrency);
     pause(config);
 
-    let rateBookingReq = rateBookingReqs[randomIntBetween(0, rateBookingReqs.length - 1)];
+    let rateBookingReq = obtainRateBookingReq();
     let rateBookingResult = bookRate(config.url, rateBookingReq);    
     pause(config);
 
@@ -82,40 +85,40 @@ export default (config) => {
 
 
 export const browseForexRates = (config) => {
-    let baseCurrency = baseCurrencies[randomIntBetween(0, baseCurrencies.length - 1)];
+    let baseCurrency = obtainBaseCurrency();
     getRatesByBaseCurrency(config.url, baseCurrency);
     pause(config);
 
-    let currencyPair = currencyPairs[randomIntBetween(0, currencyPairs.length - 1)];
+    let currencyPair = obtainCurrencyPair();
     getRatesByCurrencyPair(config.url, currencyPair.baseCurrency, currencyPair.counterCurrency);
     pause(config);
 }
 
 export const browseForexRatesAndBookRate = (config) => {
-    let baseCurrency = baseCurrencies[randomIntBetween(0, baseCurrencies.length - 1)];
+    let baseCurrency = obtainBaseCurrency();
     getRatesByBaseCurrency(config.url, baseCurrency);
     pause(config);
 
-    let currencyPair = currencyPairs[randomIntBetween(0, currencyPairs.length - 1)];
+    let currencyPair = obtainCurrencyPair();
     getRatesByCurrencyPair(config.url, currencyPair.baseCurrency, currencyPair.counterCurrency);
     pause(config);
 
-    let rateBookingReq = rateBookingReqs[randomIntBetween(0, rateBookingReqs.length - 1)];
+    let rateBookingReq = obtainRateBookingReq();
     let rateBookingResult = bookRate(config.url, rateBookingReq);   
     pause(config);
 }
 
 export const browseForexRatesAndSubmitDeal = (config) => {
     // 3. VU code    
-    let baseCurrency = baseCurrencies[randomIntBetween(0, baseCurrencies.length - 1)];
+    let baseCurrency = obtainBaseCurrency();
     getRatesByBaseCurrency(config.url, baseCurrency);
     pause(config);
 
-    let currencyPair = currencyPairs[randomIntBetween(0, currencyPairs.length - 1)];
+    let currencyPair = obtainCurrencyPair();
     getRatesByCurrencyPair(config.url, currencyPair.baseCurrency, currencyPair.counterCurrency);
     pause(config);
 
-    let rateBookingReq = rateBookingReqs[randomIntBetween(0, rateBookingReqs.length - 1)];
+    let rateBookingReq = obtainRateBookingReq();
     let rateBookingResult = bookRate(config.url, rateBookingReq);    
     pause(config);
 
@@ -192,4 +195,16 @@ const buildDealReq = (rateBookingReq, rateBookingResult) => {
 
 const pause = (config) => {
     sleep(randomIntBetween(config.minPauseInSecond, config.maxPauseInSecond));   
+}
+
+const obtainBaseCurrency = () => {
+    return baseCurrencies[randomIntBetween(0, baseCurrencies.length - 1)];
+}
+
+const obtainCurrencyPair = () => {
+    return currencyPairs[randomIntBetween(0, currencyPairs.length - 1)];
+}
+
+const obtainRateBookingReq = () => {
+    return rateBookingReqs[randomIntBetween(0, rateBookingReqs.length - 1)];
 }
