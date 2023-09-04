@@ -34,7 +34,7 @@ services:
       - ./grafana:/etc/grafana/provisioning/
 
   k6:
-    build: .
+    build: ./k8-prometheus
     networks:
       - k6
     ports:

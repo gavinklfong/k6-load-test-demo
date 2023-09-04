@@ -1,0 +1,1 @@
+docker run --rm -p 8080:8080 --name forex-trade-app --network k6-load-test-demo_k6 whalebig27/reactive-spring-forex-trade
