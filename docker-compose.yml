@@ -34,7 +34,7 @@ services:
       - ./grafana:/etc/grafana/provisioning/
 
   k6:
-    build: ./k8-prometheus
+    image: grafana/k6:latest
     networks:
       - k6
     ports:
@@ -42,8 +42,16 @@ services:
     environment:
       - K6_PROMETHEUS_RW_SERVER_URL=http://prometheus:9090/api/v1/write
       - K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM=true
-      - K6_OUT=xk6-prometheus-rw
+      - K6_OUT=experimental-prometheus-rw
     depends_on:
       - prometheus
+      - forex-app
     volumes:
       - ./scripts:/scripts
+
+  forex-app:
+    image: whalebig27/reactive-spring-forex-trade:latest
+    networks:
+      - k6
+    ports:
+      - 8080:8080

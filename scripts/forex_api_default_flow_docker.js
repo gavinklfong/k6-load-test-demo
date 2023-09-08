@@ -32,24 +32,31 @@ export default () => {
 
     // Get rate
     let currencyPair = currencyPairs[randomIntBetween(0, currencyPairs.length - 1)];
-    let getRateRes = http.get(`http://localhost:8080/rates/latest/${currencyPair.baseCurrency}/${currencyPair.counterCurrency}`);
-    check(getRateRes, {'Get Rate - response code was 200': (res) => res.status == 200});
+    let getRateRes = http.get(
+      `http://forex-app:8080/rates/latest/${currencyPair.baseCurrency}/${currencyPair.counterCurrency}`,
+      {tags: { name: "Get_Forex_Rates"}}
+    );
+    check(getRateRes, {'Get Rate - response code was 200': (res) => res.status == 200}, {name: "Get_Forex_Rates"});
     sleep(randomIntBetween(1, 3));
 
     // Book rate
     const rateBookingReq = rateBookingReqs[randomIntBetween(0, rateBookingReqs.length - 1)];
-    const rateBookingRes = http.post(`http://localhost:8080/rates/book`, JSON.stringify(rateBookingReq), {
+    const rateBookingRes = http.post(`http://forex-app:8080/rates/book`, JSON.stringify(rateBookingReq), {
       headers: { 'Content-Type': 'application/json' },
+      tags: { name: "Book_Forex_Rate"}
     });
-    check(rateBookingRes, {'Book Rate - response code was 200': (res) => res.status == 200});
+    check(rateBookingRes, {'Book Rate - response code was 200': (res) => res.status == 200}, 
+          {name: "Book_Forex_Rate"});
     sleep(randomIntBetween(1, 3));
 
     // Submit trade deal
     const dealReq = buildDealReq(rateBookingReq, rateBookingRes.json());
-    const submitDealRes = http.post(`http://localhost:8080/deals`, JSON.stringify(dealReq), {
+    const submitDealRes = http.post(`http://forex-app:8080/deals`, JSON.stringify(dealReq), {
       headers: { 'Content-Type': 'application/json' },
+      tags: { name: "Submit_Forex_Deal"}
     });
-    check(submitDealRes, {'Submit Trade Deal - response code was 200': (res) => res.status == 200});
+    check(submitDealRes, {'Submit Trade Deal - response code was 200': (res) => res.status == 200}, 
+          {name: "Submit_Forex_Deal"});
     sleep(randomIntBetween(1, 3));
 }
 
